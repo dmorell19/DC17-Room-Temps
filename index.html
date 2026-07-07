@@ -151,7 +151,9 @@
    node live. Rooms with an empty sn stay static placeholders.
    HOW TO CONNECT A SENSOR:
      1. Find the room below (each line is commented with its name).
-     2. Paste its LI-COR logger serial between the quotes:  sn: "12345678"
+     2. Paste its LI-COR sensor serial between the quotes:  sn: "22443485"
+        (the sensor's own serial — the station serial is set once in STATION_SN
+        above, and the code auto-picks that sensor's Temperature channel).
      3. Save and re-upload this file. That node goes live automatically —
         it becomes a LIVE node, no other edits needed.
    measurement = the sensor label in LI-COR (usually "Temperature").
@@ -159,8 +161,9 @@
    ===================================================================== */
 const CONFIG = {
   PROXY_URL: "https://licor-proxy.devinmorell.workers.dev/",
+  STATION_SN: "22459340",  // the RX/MX station all sensors report through (the 'loggers' value)
   REFRESH_MS: 120000,      // poll every 2 min
-  LOOKBACK_MIN: 120,       // pull last 2 hours, show newest
+  LOOKBACK_MIN: 360,       // pull last 6 hours, show newest reading
   LIVE: {
     // ---- Electrical rooms ----
     "4033": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Elec Room S
@@ -247,24 +250,25 @@ function utcStamp(d){ // "YYYY-MM-DD HH:MM:SS" in UTC
   return d.toISOString().slice(0,19).replace("T"," ");
 }
 
-// Tolerant extractor: LI-COR /v1/data returns { data:[ ...readings ] }.
-// Field names can vary by account/config, so we probe common ones and
-// log the raw shape once to the console for easy tuning.
+// LI-COR /v1/data returns { data:[ ...readings ] }, one row per sensor-channel
+// per timestamp. A reading looks like:
+//   { logger_sn:"22459340", sensor_sn:"22443485-1", timestamp:"2026-06-29 00:00:00Z",
+//     value:"68.28", unit:"°F", sensor_measurement_type:"Temperature" }
+// sensor_sn carries a channel suffix: -1 Temperature, -2 RH, -B Battery.
+// We match a room by its sensor serial base + the Temperature channel.
 let loggedShape=false;
-function pickLatest(rows, sn, measurement){
+function parseTs(t){ return new Date(String(t).replace(" ","T")); }
+function pickLatest(rows, sensorSn, measurement){
+  const want=(measurement||"Temperature").toLowerCase();
   const match = rows.filter(r=>{
-    const rsn = r.logger_sn || r.loggerSn || r.serial || r.logger_serial_number;
-    const type = (r.sensor_measurement_type||r.measurement_type||r.sensor_label||r.label||r.data_type||"")+"";
-    return (!sn || String(rsn)===String(sn)) &&
-           (!measurement || type.toLowerCase().includes(measurement.toLowerCase()));
+    const base=String(r.sensor_sn||"").split("-")[0];
+    const type=String(r.sensor_measurement_type||"").toLowerCase();
+    return base===String(sensorSn) && type===want;
   });
   if(!match.length) return null;
-  match.sort((a,b)=> new Date(b.timestamp||b.time||b.timestamp_UTC) - new Date(a.timestamp||a.time||a.timestamp_UTC));
-  const r = match[0];
-  const value = r.value ?? r.scaled_value ?? r.si_value ?? r.us_value;
-  const unit  = r.unit || r.scaled_unit || r.si_unit || r.us_unit || "";
-  const ts    = r.timestamp || r.time || r.timestamp_UTC;
-  return { value:Number(value), unit, ts:new Date(ts) };
+  match.sort((a,b)=> parseTs(b.timestamp) - parseTs(a.timestamp));
+  const r=match[0];
+  return { value:Number(r.value), unit:r.unit||"", ts:parseTs(r.timestamp) };
 }
 
 function relTime(d){
@@ -276,20 +280,19 @@ function relTime(d){
 
 async function fetchLive(){
   const cfg=CONFIG.LIVE;
-  const sns=[...new Set(Object.values(cfg).map(c=>c.sn))].filter(s=>s && !s.startsWith("YOUR_"));
-  if(CONFIG.PROXY_URL.includes("YOUR-WORKER")||!sns.length){ return; } // not configured yet
+  const configured=Object.entries(cfg).filter(([id])=>liveConfigured(id));
+  if(CONFIG.PROXY_URL.includes("YOUR-WORKER")||!CONFIG.STATION_SN||!configured.length){ return; }
   const end=new Date(), start=new Date(Date.now()-CONFIG.LOOKBACK_MIN*60000);
-  const url=CONFIG.PROXY_URL+"?loggers="+encodeURIComponent(sns.join(","))
+  const url=CONFIG.PROXY_URL+"?loggers="+encodeURIComponent(CONFIG.STATION_SN)
     +"&start_date_time="+encodeURIComponent(utcStamp(start))
     +"&end_date_time="+encodeURIComponent(utcStamp(end));
   try{
     const res=await fetch(url);
     if(!res.ok) throw new Error("HTTP "+res.status);
     const payload=await res.json();
-    const rows=payload.data||payload.observation_list||[];
+    const rows=payload.data||[];
     if(!loggedShape){ console.log("LI-COR sample reading:",rows[0]); loggedShape=true; }
-    Object.entries(cfg).forEach(([id,c])=>{
-      if(!liveConfigured(id)) return;
+    configured.forEach(([id,c])=>{
       const entry=nodeById[id]; if(!entry) return;
       const latest=pickLatest(rows,c.sn,c.measurement);
       const n=entry.n;
