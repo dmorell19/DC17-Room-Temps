@@ -128,7 +128,7 @@
     </div>
   </header>
 
-  <div class="stage"><div class="floorplan" id="floorplan"><div class="plan-title">Level 4 Temperature Readings</div></div></div>
+  <div class="stage"><div class="floorplan" id="floorplan"><div class="plan-title">Level 4 Temperature Reading</div></div></div>
 
   <aside>
     <div>
@@ -322,8 +322,9 @@ async function fetchLive(){
         const isC = u.includes("C") && !u.includes("F");
         const tF = isC ? latest.value*9/5+32 : latest.value;
         n.state = tF>=c.alarmF ? "alarm" : (tF>=c.warnF ? "warn" : "ok");
+        const rh = pickLatest(rows, c.sn, "RH");
         n.stats = { Status:"Online", Temp:tF.toFixed(1)+" \u00b0F",
-                    Reading:latest.value+(latest.unit?" "+latest.unit:""),
+                    Humidity:(rh && !Number.isNaN(rh.value)) ? rh.value.toFixed(1)+" %RH" : "—",
                     "Last upload":relTime(latest.ts) };
         n._el.classList.remove("stale"); setRowLive(n,true);
       }else{
