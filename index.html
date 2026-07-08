@@ -51,20 +51,23 @@
     color:var(--ink);background:rgba(11,14,19,.82);border:1px solid var(--line);
     border-radius:8px;padding:8px 18px;box-shadow:0 6px 20px rgba(0,0,0,.45);
     -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);white-space:nowrap}
-  .node{position:absolute;transform:translate(-50%,-50%);width:34px;height:34px;
+  .node{position:absolute;transform:translate(-50%,-50%);width:4.4%;aspect-ratio:1;
     border-radius:50%;cursor:pointer;z-index:3}
-  .node .ring{width:100%;height:100%;border-radius:50%;border:2.5px solid var(--accent);
-    background:transparent;transition:transform .14s;box-shadow:0 0 10px rgba(0,0,0,.5)}
-  .node::after{content:"";position:absolute;inset:-3px;border-radius:50%;
-    border:2px solid var(--accent);opacity:.4;animation:ping 2.8s ease-out infinite}
+  /* filled dot, colored by state, sized to cover the red dot baked into the plan */
+  .node .ring{width:100%;height:100%;border-radius:50%;border:2px solid rgba(255,255,255,.9);
+    background:var(--warn);   /* default = not configured = amber */
+    transition:transform .14s;box-shadow:0 0 8px rgba(0,0,0,.55)}
+  .node::after{content:"";position:absolute;inset:-2px;border-radius:50%;
+    border:2px solid var(--ok);opacity:.4;animation:ping 2.8s ease-out infinite;display:none}
   @keyframes ping{0%{transform:scale(.75);opacity:.5}100%{transform:scale(1.7);opacity:0}}
-  .node:hover .ring{transform:scale(1.22)}
-  .node.sel .ring{border-color:#fff;box-shadow:0 0 16px rgba(255,255,255,.75)}
-  /* ring color by configuration/alarm: yellow = not configured, green = configured, red = alarm */
-  .node .ring{border-color:var(--warn)} .node::after{border-color:var(--warn)}
-  .node.livefeed .ring{border-color:var(--ok)} .node.livefeed::after{border-color:var(--ok)}
-  .node.livefeed.alarm .ring{border-color:var(--alarm)} .node.livefeed.alarm::after{border-color:var(--alarm)}
-  .node.sel .ring{border-color:#fff !important}
+  .node:hover .ring{transform:scale(1.18)}
+  /* dot color: amber = not configured, green = configured, red = alarm */
+  .node.livefeed .ring{background:var(--ok)}
+  .node.livefeed.alarm .ring{background:var(--alarm)}
+  /* soft pulse only on live (configured) nodes */
+  .node.livefeed::after{display:block;border-color:var(--ok)}
+  .node.livefeed.alarm::after{border-color:var(--alarm)}
+  .node.sel .ring{border-color:#fff !important;box-shadow:0 0 16px rgba(255,255,255,.85)}
   .node .tip{position:absolute;left:42px;top:50%;transform:translateY(-50%);
     font-family:var(--mono);font-size:10px;white-space:nowrap;background:rgba(11,14,19,.95);
     padding:4px 8px;border-radius:4px;border:1px solid var(--line);opacity:0;
@@ -74,8 +77,7 @@
   .node .badge{position:absolute;top:-7px;right:-7px;width:12px;height:12px;border-radius:50%;
     background:var(--ok);border:2px solid var(--bg);box-shadow:0 0 6px var(--ok);
     animation:blink 1.8s infinite;display:none}
-  .node.livefeed .badge{display:block}
-  .node.livefeed.stale .badge{background:var(--ink-dim);box-shadow:none;animation:none}
+  .node.livefeed.stale .badge{display:block;background:var(--ink-dim);box-shadow:none;animation:none}
   .rrow .lv{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;color:var(--ok);
     border:1px solid #24463a;border-radius:3px;padding:1px 4px;margin-left:auto}
   .rrow .lv.stale{color:var(--ink-dim);border-color:var(--line)}
@@ -128,7 +130,7 @@
     </div>
   </header>
 
-  <div class="stage"><div class="floorplan" id="floorplan"><div class="plan-title">Level 4 Temperature Readings</div></div></div>
+  <div class="stage"><div class="floorplan" id="floorplan"><div class="plan-title">Level 4 Temperature Reading</div></div></div>
 
   <aside>
     <div>
@@ -178,13 +180,13 @@ const CONFIG = {
     "4032": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Elec Room T
     "4031": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Elec Room U
     "4029": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Elec Room V
-    "4028": { sn: "22443485",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Elec Room W
+    "4028": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Elec Room W
     "4027": { sn: "22443487", measurement: "Temperature", warnF: 80, alarmF: 90 }, // Elec Room X
     "4026": { sn: "22443486", measurement: "Temperature", warnF: 80, alarmF: 90 }, // Elec Room R1
     // ---- Ehouses ----
     "EH-1": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Ehouse 1
     "EH-2": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Ehouse 2
-    "EH-3": { sn: "", measurement: "Temperature", warnF: 80, alarmF: 90 }, // Ehouse 3
+    "EH-3": { sn: "22443485", measurement: "Temperature", warnF: 80, alarmF: 90 }, // Ehouse 3
     // ---- Data halls ----
     "4030": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Data Hall 4-F
     "4020": { sn: "",         measurement: "Temperature", warnF: 80, alarmF: 90 }, // Data Hall 4-C
